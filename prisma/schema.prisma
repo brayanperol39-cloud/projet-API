@@ -34,6 +34,7 @@ model User {
   refreshTokens RefreshToken[]
   resetTokens   PasswordResetToken[]
   tickets       Ticket[]
+    auditLogs     AuditLog[]
 }
 
 model Invitation {
@@ -71,4 +72,19 @@ model Ticket {
   createdAt   DateTime     @default(now())
   createdById Int?
   createdBy   User?        @relation(fields: [createdById], references: [id])
+}
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  actorId    Int?
+  action     String
+  targetType String
+  targetId   Int?
+  metadata   Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation(fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
 }
