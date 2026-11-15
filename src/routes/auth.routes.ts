@@ -1,6 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { prisma } from "../prisma";
+import { audit } from "../services/audit";
 import { authenticate } from "../middleware/auth";
 import { loginLimiter } from "../middleware/rateLimiters";
 import { loginSchema, refreshSchema } from "../schemas/auth.schemas";
@@ -48,7 +49,7 @@ router.post("/login", loginLimiter, async (req, res) => {
     user.isActive &&
     (await bcrypt.compare(password, user.passwordHash));
 
-  if (!valid) {
+    if (!valid) {
     if (user) {
       const attempts = user.failedAttempts + 1;
       const lock = attempts >= MAX_FAILED_ATTEMPTS;
@@ -59,6 +60,15 @@ router.post("/login", loginLimiter, async (req, res) => {
           lockedUntil: lock ? new Date(Date.now() + LOCK_DURATION_MS) : null,
         },
       });
+      if (lock) {
+        await audit(prisma, {
+          actorId: null,
+          action: "ACCOUNT_LOCKED",
+          targetType: "user",
+          targetId: user.id,
+          ip: req.ip,
+        });
+      }
     }
     // Même message dans tous les cas d'échec : on ne révèle pas si le compte existe
     throw unauthorized("Identifiants invalides");
