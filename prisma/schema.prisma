@@ -21,12 +21,14 @@ enum TicketStatus {
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
-  email        String   @unique
-  passwordHash String?
-  role         Role     @default(USER)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
+  id             Int       @id @default(autoincrement())
+  email          String    @unique
+  passwordHash   String?
+  role           Role      @default(USER)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  failedAttempts Int       @default(0)
+  lockedUntil    DateTime?
 
   invitations   Invitation[]
   refreshTokens RefreshToken[]

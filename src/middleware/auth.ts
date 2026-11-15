@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../prisma";
 import { verifyAccessToken } from "../utils/tokens";
+import { unauthorized } from "../utils/httpError";
 
 declare global {
   namespace Express {
@@ -10,10 +11,10 @@ declare global {
   }
 }
 
-export async function authenticate(req: Request, res: Response, next: NextFunction) {
+export async function authenticate(req: Request, _res: Response, next: NextFunction) {
   const header = req.headers.authorization;
   if (!header || !header.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Token manquant" });
+    return next(unauthorized("Token manquant"));
   }
 
   try {
@@ -22,12 +23,12 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
 
     // On relit l'utilisateur en base : un compte désactivé est refusé tout de suite
     if (!user || !user.isActive) {
-      return res.status(401).json({ error: "Compte inexistant ou désactivé" });
+      return next(unauthorized("Compte inexistant ou désactivé"));
     }
 
     req.user = { id: user.id, role: user.role };
     next();
   } catch {
-    return res.status(401).json({ error: "Token invalide ou expiré" });
+    return next(unauthorized("Token invalide ou expiré"));
   }
 }

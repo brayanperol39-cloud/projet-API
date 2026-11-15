@@ -1,61 +1,84 @@
 import { Router } from "express";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { authenticate } from "../middleware/auth";
 import { requireRole } from "../middleware/roles";
+import { notFound } from "../utils/httpError";
+import {
+  idParamSchema,
+  createTicketSchema,
+  updateStatusSchema,
+  listTicketsQuerySchema,
+} from "../schemas/ticket.schemas";
 
 const router = Router();
-const VALID_STATUSES = ["open", "in_progress", "closed"];
 const STAFF_ROLES = ["AGENT", "ADMIN", "SUPER_ADMIN"];
-
 const isStaff = (role: string) => STAFF_ROLES.includes(role);
 
-// Toutes les routes tickets exigent d'être connecté
 router.use(authenticate);
 
-// Créer un ticket : tous les rôles connectés (le créateur est enregistré)
+// Créer un ticket
 router.post("/", async (req, res) => {
-  const { title, description } = req.body ?? {};
-  if (!title || !description) {
-    return res.status(400).json({ error: "title et description sont requis" });
-  }
+  const { title, description } = createTicketSchema.parse(req.body ?? {});
   const ticket = await prisma.ticket.create({
     data: { title, description, createdById: req.user!.id },
   });
-  res.status(201).json(ticket);
+  res.status(201).json({ data: ticket });
 });
 
-// Lister : le personnel voit tout, un USER ne voit que ses propres tickets
+// Lister : pagination, filtre, recherche, tri
 router.get("/", async (req, res) => {
-  const where = isStaff(req.user!.role) ? {} : { createdById: req.user!.id };
-  res.json(await prisma.ticket.findMany({ where, orderBy: { id: "asc" } }));
+  const { page, limit, status, q, sortBy, order } = listTicketsQuerySchema.parse(req.query);
+
+  const where: Prisma.TicketWhereInput = {
+    // règle d'accès : un USER ne voit que ses tickets
+    ...(isStaff(req.user!.role) ? {} : { createdById: req.user!.id }),
+    ...(status ? { status } : {}),
+    ...(q
+      ? {
+          OR: [
+            { title: { contains: q, mode: "insensitive" } },
+            { description: { contains: q, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+  };
+
+  const [items, total] = await prisma.$transaction([
+    prisma.ticket.findMany({
+      where,
+      orderBy: [{ [sortBy]: order }, { id: "asc" }], // id en second critère : tri stable
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.ticket.count({ where }),
+  ]);
+
+  res.json({
+    data: items,
+    meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  });
 });
 
-// Un ticket par ID : un USER ne peut pas lire le ticket d'un autre (404, pas 403)
+// Un ticket par ID (404 si pas le droit : on ne révèle pas son existence)
 router.get("/:id", async (req, res) => {
-  const id = Number(req.params.id);
-  if (Number.isNaN(id)) return res.status(400).json({ error: "ID invalide" });
-
+  const { id } = idParamSchema.parse(req.params);
   const ticket = await prisma.ticket.findUnique({ where: { id } });
   if (!ticket || (!isStaff(req.user!.role) && ticket.createdById !== req.user!.id)) {
-    return res.status(404).json({ error: "Ticket introuvable" });
+    throw notFound("Ticket introuvable");
   }
-  res.json(ticket);
+  res.json({ data: ticket });
 });
 
-// Changer le statut : Agent, Admin, Super Admin seulement
+// Changer le statut : personnel seulement
 router.patch("/:id/status", requireRole("AGENT", "ADMIN", "SUPER_ADMIN"), async (req, res) => {
-  const id = Number(req.params.id);
-  if (Number.isNaN(id)) return res.status(400).json({ error: "ID invalide" });
-
-  const { status } = req.body ?? {};
-  if (!VALID_STATUSES.includes(status)) {
-    return res.status(400).json({ error: `status doit être parmi : ${VALID_STATUSES.join(", ")}` });
-  }
+  const { id } = idParamSchema.parse(req.params);
+  const { status } = updateStatusSchema.parse(req.body ?? {});
 
   const existing = await prisma.ticket.findUnique({ where: { id } });
-  if (!existing) return res.status(404).json({ error: "Ticket introuvable" });
+  if (!existing) throw notFound("Ticket introuvable");
 
-  res.json(await prisma.ticket.update({ where: { id }, data: { status } }));
+  res.json({ data: await prisma.ticket.update({ where: { id }, data: { status } }) });
 });
 
 export default router;
