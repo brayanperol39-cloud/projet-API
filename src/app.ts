@@ -7,12 +7,13 @@ import ticketsRouter from "./routes/tickets.routes";
 import auditRouter from "./routes/audit.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { globalLimiter } from "./middleware/rateLimiters";
-
+import swaggerUi from "swagger-ui-express";
+import { openapi } from "./docs/openapi";
 const app = express();
 app.use(globalLimiter);
 app.use(express.json());
 app.use(express.static("public"));
-
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openapi));
 app.use("/auth", authRouter);
 app.use("/auth", invitationRouter);
 app.use("/users", usersRouter);
