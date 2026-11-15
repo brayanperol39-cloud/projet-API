@@ -4,6 +4,7 @@ import { requireRole } from "../middleware/roles";
 import { authorize } from "../middleware/permissions";
 import { validate } from "../middleware/validate";
 import { createUserSchema, createAdminSchema, updateUserSchema } from "../schemas/schemas";
+import { changeRoleSchema } from "../schemas/users.schemas";
 import * as ctrl from "../controllers/users.controller";
 
 const router = Router();
@@ -18,5 +19,5 @@ router.get("/:id",           authorize([...staff], "user:read"), ctrl.getOne);
 router.patch("/:id",         authorize([...staff], "user:update"), validate(updateUserSchema), ctrl.update);
 router.patch("/:id/disable", authorize([...staff], "user:update"), ctrl.disable);
 router.patch("/:id/enable",  authorize([...staff], "user:update"), ctrl.enable);
-
+router.patch("/:id/role", requireRole("SUPER_ADMIN"), validate(changeRoleSchema), ctrl.changeRole);
 export default router;
