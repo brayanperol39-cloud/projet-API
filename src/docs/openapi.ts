@@ -71,6 +71,22 @@ export const openapi = {
               },
             },
           },
+          "/tickets/{id}/analyze": {
+  post: {
+    tags: ["Tickets"],
+    summary: "Analyse IA d'un ticket : résumé, catégorie, priorité, réponse suggérée (AGENT, ADMIN, SUPER_ADMIN)",
+    security: bearer,
+    parameters: [idParam],
+    responses: {
+      200: { description: "Analyse suggérée (non enregistrée)" },
+      403: errorResponse("Rôle insuffisant"),
+      404: errorResponse("Introuvable"),
+      429: errorResponse("Trop de demandes"),
+      502: errorResponse("Erreur du service d'IA"),
+      503: errorResponse("IA non configurée"),
+    },
+  },
+},
         },
         responses: {
           200: { description: "Tokens émis" },

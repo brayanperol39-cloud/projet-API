@@ -10,12 +10,14 @@ import {
   updateStatusSchema,
   listTicketsQuerySchema,
 } from "../schemas/ticket.schemas";
-
+import { analyzeTicket } from "../services/ai";
+import { aiLimiter } from "../middleware/rateLimiters";
 const router = Router();
 const STAFF_ROLES = ["AGENT", "ADMIN", "SUPER_ADMIN"];
 const isStaff = (role: string) => STAFF_ROLES.includes(role);
 
 router.use(authenticate);
+router.use(aiLimiter);
 
 // Créer un ticket
 router.post("/", async (req, res) => {
@@ -80,5 +82,13 @@ router.patch("/:id/status", requireRole("AGENT", "ADMIN", "SUPER_ADMIN"), async 
 
   res.json({ data: await prisma.ticket.update({ where: { id }, data: { status } }) });
 });
+// Analyse IA : suggestion pour le personnel (rien n'est modifié ni enregistré)
+router.post("/:id/analyze", requireRole("AGENT", "ADMIN", "SUPER_ADMIN"), aiLimiter, async (req, res) => {
+  const { id } = idParamSchema.parse(req.params);
+  const ticket = await prisma.ticket.findUnique({ where: { id } });
+  if (!ticket) throw notFound("Ticket introuvable");
 
+  const analysis = await analyzeTicket(ticket.title, ticket.description);
+  res.json({ data: analysis });
+});
 export default router;

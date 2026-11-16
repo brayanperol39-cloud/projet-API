@@ -18,3 +18,11 @@ export const loginLimiter = rateLimit({
   legacyHeaders: false,
   handler: (_req, _res, next) => next(tooMany("Trop de tentatives de connexion, réessayez plus tard")),
 });
+export const aiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.DISABLE_RATE_LIMIT === "1",
+  handler: (_req, _res, next) => next(tooMany("Trop de demandes d'analyse IA, réessayez plus tard")),
+});

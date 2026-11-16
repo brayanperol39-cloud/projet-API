@@ -19,6 +19,7 @@ app.use("/auth", invitationRouter);
 app.use("/users", usersRouter);
 app.use("/tickets", ticketsRouter);
 app.use("/audit-logs", auditRouter);
+app.get("/openapi.json", (_req, res) => res.json(openapi));
 
 // Gestion centralisée des erreurs (toujours en dernier)
 app.use(errorHandler);
