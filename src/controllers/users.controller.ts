@@ -10,12 +10,14 @@ export async function createUser(req: Request, res: Response) {
   res.status(201).json(await usersService.createUser(req.user!, req.body.email, "USER", req.ip));
 }
 
-export async function list(_req: Request, res: Response) {
-  res.json(await usersService.listUsers());
+// CORRECTION VULN-001 : on passe l'acteur au service
+export async function list(req: Request, res: Response) {
+  res.json(await usersService.listUsers(req.user!));
 }
 
+// CORRECTION VULN-001 : on passe l'acteur au service
 export async function getOne(req: Request, res: Response) {
-  res.json(await usersService.getUser(parseId(req.params.id)));
+  res.json(await usersService.getUser(req.user!, parseId(req.params.id)));
 }
 
 export async function update(req: Request, res: Response) {

@@ -9,17 +9,23 @@ import { errorHandler } from "./middleware/errorHandler";
 import { globalLimiter } from "./middleware/rateLimiters";
 import swaggerUi from "swagger-ui-express";
 import { openapi } from "./docs/openapi";
+
 const app = express();
 app.use(globalLimiter);
 app.use(express.json());
 app.use(express.static("public"));
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openapi));
+
+// CORRECTION VULN-002 : documentation désactivée en production
+if (process.env.NODE_ENV !== "production") {
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openapi));
+  app.get("/openapi.json", (_req, res) => res.json(openapi));
+}
+
 app.use("/auth", authRouter);
 app.use("/auth", invitationRouter);
 app.use("/users", usersRouter);
 app.use("/tickets", ticketsRouter);
 app.use("/audit-logs", auditRouter);
-app.get("/openapi.json", (_req, res) => res.json(openapi));
 
 // Gestion centralisée des erreurs (toujours en dernier)
 app.use(errorHandler);

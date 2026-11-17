@@ -43,13 +43,27 @@ export async function createUser(actor: Actor, email: string, role: "ADMIN" | "U
   });
 }
 
-export function listUsers() {
-  return prisma.user.findMany({ select: publicFields, orderBy: { id: "asc" } });
+// CORRECTION VULN-001 : un ADMIN ne voit que les USER et lui-même
+export function listUsers(actor: Actor) {
+  return prisma.user.findMany({
+    where:
+      actor.role === "ADMIN"
+        ? { OR: [{ role: "USER" }, { id: actor.id }] }
+        : {},
+    select: publicFields,
+    orderBy: { id: "asc" },
+  });
 }
 
-export async function getUser(id: number) {
+// CORRECTION VULN-001 : un ADMIN ne peut lire que les USER et lui-même
+export async function getUser(actor: Actor, id: number) {
   const user = await prisma.user.findUnique({ where: { id }, select: publicFields });
   if (!user) throw new HttpError(404, "Utilisateur introuvable");
+
+  // 404 (et non 403) pour ne pas confirmer l'existence d'un compte privilégié
+  if (actor.role === "ADMIN" && user.role !== "USER" && user.id !== actor.id) {
+    throw new HttpError(404, "Utilisateur introuvable");
+  }
   return user;
 }
 
