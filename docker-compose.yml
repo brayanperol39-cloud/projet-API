@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: support_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: MonNouveauMdp123
+      POSTGRES_DB: support_ticket
+    # ⬅️ plus de section "ports" : Postgres reste interne au réseau Docker
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d support_ticket"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: support_api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://postgres:MonNouveauMdp123@postgres:5432/support_ticket
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    command: >
+      sh -c "
+        npx prisma db push --skip-generate &&
+        npx tsx prisma/seed.ts &&
+        npm run dev
+      "
+
+volumes:
+  postgres_data:

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Support tickets</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 16px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
+    th { background: #f2f2f2; }
+    form { display: flex; gap: 8px; margin-top: 12px; }
+    input { padding: 6px; flex: 1; }
+    button, select { padding: 6px 12px; }
+  </style>
+</head>
+<body>
+  <h1>Support ticket API</h1>
+
+  <form id="form">
+    <input id="title" placeholder="Titre" required>
+    <input id="description" placeholder="Description" required>
+    <button type="submit">Créer un ticket</button>
+  </form>
+
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Titre</th><th>Description</th><th>Statut</th><th>Créé le</th></tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <script>
+    async function load() {
+      const res = await fetch("/tickets");
+      const tickets = await res.json();
+      const rows = document.getElementById("rows");
+      rows.innerHTML = "";
+      for (const t of tickets) {
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td>" + t.id + "</td>" +
+          "<td>" + t.title + "</td>" +
+          "<td>" + t.description + "</td>" +
+          "<td><select data-id='" + t.id + "'>" +
+            ["open", "in_progress", "closed"].map(function (s) {
+              return "<option value='" + s + "'" + (s === t.status ? " selected" : "") + ">" + s + "</option>";
+            }).join("") +
+          "</select></td>" +
+          "<td>" + new Date(t.createdAt).toLocaleString("fr-FR") + "</td>";
+        rows.appendChild(tr);
+      }
+    }
+
+    document.getElementById("rows").addEventListener("change", async function (e) {
+      if (e.target.tagName !== "SELECT") return;
+      await fetch("/tickets/" + e.target.dataset.id + "/status", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: e.target.value })
+      });
+      load();
+    });
+
+    document.getElementById("form").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      await fetch("/tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: document.getElementById("title").value,
+          description: document.getElementById("description").value
+        })
+      });
+      e.target.reset();
+      load();
+    });
+
+    load();
+  </script>
+</body>
+</html>

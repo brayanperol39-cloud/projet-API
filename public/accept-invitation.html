@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Activer mon compte</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 420px; margin: 60px auto; padding: 0 16px; }
+    form { display: flex; flex-direction: column; gap: 12px; }
+    input, button { padding: 10px; font-size: 16px; }
+    #msg { margin-top: 16px; }
+    .ok { color: #1a7f37; }
+    .err { color: #cf222e; }
+  </style>
+</head>
+<body>
+  <h1>Activer mon compte</h1>
+  <form id="form">
+    <input id="password" type="password" placeholder="Mot de passe (10 caractères minimum)" minlength="10" required>
+    <input id="confirm" type="password" placeholder="Confirmer le mot de passe" minlength="10" required>
+    <button type="submit">Définir mon mot de passe</button>
+  </form>
+  <p id="msg"></p>
+
+  <script>
+    var token = new URLSearchParams(location.search).get("token");
+    var msg = document.getElementById("msg");
+
+    function show(text, ok) {
+      msg.textContent = text;
+      msg.className = ok ? "ok" : "err";
+    }
+
+    if (!token) show("Lien invalide : token manquant.", false);
+
+    document.getElementById("form").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      var password = document.getElementById("password").value;
+      if (password !== document.getElementById("confirm").value) {
+        return show("Les mots de passe ne correspondent pas.", false);
+      }
+      try {
+        var res = await fetch("/auth/accept-invitation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: token, password: password })
+        });
+        var data = await res.json();
+        show(data.message || data.error, res.ok);
+        if (res.ok) document.getElementById("form").reset();
+      } catch (err) {
+        show("Impossible de joindre le serveur.", false);
+      }
+    });
+  </script>
+</body>
+</html>
